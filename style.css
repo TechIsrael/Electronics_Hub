@@ -1,0 +1,10 @@
+@charset "UTF-8"
+*{
+margin:0px;
+padding:0px;
+}
+h1 {color:blue;
+    font-family:'LindenHillRegular',chunkfive,Times,"Times New Roman",Sarif,Arial;
+   }
+h2 {color:green;}
+h3 {color:blue;}
