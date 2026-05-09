@@ -1,19 +1,30 @@
 
-#include <Wire.h>
-#include <RTClib.h>// Library for DS3231
+/*
+ Arduino Nano or Uno
+ The circuit:  SPI_Test
+  * CS - to digital pin 10  (SS pin)
+  *SPI - to digital pin 12 MISO in SPI periperal
+  * SDI - to digital pin 11 (MOSI pin)
+  * CLK - to digital pin 13 (SCK pin)
+*/
 #include <SPI.h>
-//#include <DS3231.h>
+#include <Wire.h>
+#include <RTClib.h> // Library for DS3231
 // Initialize the RTC module
 RTC_DS3231 rtc;
-//bool ADy, A12h, Apm;
-unsigned long ti; 
+volatile bool alarmTriggered = false;
+static char buf[10];
 int brightness;
-int H,M,S,Temp, Humid;
+int H,M,S,Temp;
 int D,Mt,Y;
 char buff[10];
 char N1[10];
 char Tim[10];
-// set pin 10 as the slave select for the digital pot:
+int inputValue = 0;
+// set pin 10 as the slave select 
+const int AlarmPin = 7;
+const int DS3231_alarmPin = 2;
+const int InputPin = 6;
  const int SPI_SS = 10;
  #define DECODE_MODE 9 
  #define INTENSITY 10 
@@ -28,21 +39,20 @@ char Tim[10];
     SPI.transfer(value);
     digitalWrite(SPI_SS, HIGH);
  } 
- void displaySum(int A, int B)
+
+void displayTemp()
  {  
-    int Sum = A + B;
-    sprintf(buff,"%d", Sum);
-    int adds = strlen(buff);
+    sprintf(buff,"%d", Temp);
+    int adds = strlen(buff); 
+    int add = adds+1;
     displayclear();
-  for(int i = 1; i<9;i++) 
+  for(int i = 1; i<add;i++) 
   { 
    sendData(adds , buff[i-1]);
    adds--;
  }
   delay(100);
- } 
-
-
+ }
 void displayTime(char H, char M,char S)
 {  
   sprintf(Tim,"%d*%d*%d",H,M,S);
@@ -53,7 +63,38 @@ void displayTime(char H, char M,char S)
    sendData(adds2 , Tim[i-1]);
    adds2--;
  }
-  //delay(100);
+}
+void Time()
+{      
+    buf[2] = ':';
+    buf[5] = ':'; 
+    number_to_string(H,buf);
+    number_to_string(M,&buf[3]);
+    number_to_string(S,&buf[6]);
+    buf[9] = '\0';
+    int adds2 = strlen(buf);
+    displayclear() ;
+  for(int i = 1; i<9;i++) 
+  { 
+   sendData(adds2 , buf[i-1]);
+   adds2--;
+ }
+}
+
+
+void number_to_string(uint8_t num,char* buf)
+{   uint8_t l,m,n;
+    if(num<10)
+    {
+        buf[0] = '0';
+        buf[1] = num;
+         //l = num + 48;
+    }else if(num >= 10 && num < 99)
+    {
+        buf[0] = (num/10);
+        buf[1] = (num%10);
+        
+    }
 }
 
 void displayclear()
@@ -63,17 +104,9 @@ void displayclear()
       sendData(i,0x0F);
    }
 }
-
-void displayClear()
-{
-  sendData(9,0x00);
- for(int i =1; i<9;i++)
-   {
-      sendData(i,0x00);
-   }
-   sendData(9,0x0F);
+void alarmISR(){
+  alarmTriggered = true;
 }
-
 
 void MAX72xx_begin()
 {
@@ -82,52 +115,80 @@ void MAX72xx_begin()
   delay(1000);
   sendData(DISPLAY_TEST, 0x00);
   sendData(DECODE_MODE, 0xFF);
-  sendData(INTENSITY, 0x05);
+  sendData(INTENSITY, 0x07);
   sendData(SCAN_LIMIT, 0x07);
   sendData(SHUTDOWN, 0x01);
 }
-
-
 void setup() {
+  // set the slaveSelectPin as an output:
   pinMode(SPI_SS, OUTPUT);
+    pinMode(DS3231_alarmPin, INPUT_PULLUP);
+  pinMode(InputPin, INPUT);
+  pinMode(AlarmPin, OUTPUT);
+  //pinMode(DS3231_alarmPin, INPUT);
   Serial.begin(9600);
+  // initialize SPI:
   SPI.begin();
+  //initialise MAX72xx
   MAX72xx_begin();
+  // Start the I2C interface
   Wire.begin();
 
   if (!rtc.begin()) {
     Serial.println("Couldn't find RTC");
     while (1); // Stop the program if RTC is not found
   }
-
   // Optional: Set the time to the time the sketch was compiled
   // Uncomment the line below the very FIRST time you upload the code to set the time, then comment it out and re-upload.
   //rtc.adjust(DateTime(F(__DATE__), F(__TIME__))); 
   //rtc.adjust(DateTime(2026 ,1 ,24, 15,28,10));
+  // disable sware wavw and enable alarms
+  rtc.disable32K();
+  rtc.writeSqwPinMode(DS3231_OFF);
+  // clear any existing alarms
+  rtc.clearAlarm(1);
+  rtc.clearAlarm(2);
+  // set alarm1 (HH:MM:SS)every day 
+  //rtc.setAlarm2( DateTime(0,0,0,10,30,0),DS3231_A2_Hour); //DS3231_A2_PerMinute Minute HourMinute Hour Date Day -Modes
+  //rtc.enableAlarm(1);
+  attachInterrupt(digitalPinToInterrupt(2),alarmISR, FALLING);
+  Serial.println("DS3231 Alarm-2 Interrupt Set!");
+  digitalWrite(AlarmPin, LOW);
 }
 
 void loop() {
   DateTime now = rtc.now(); // Get the current time
-
-  Serial.print(now.year(), DEC);
-  Serial.print('/');
-  Serial.print(now.month(), DEC);
-  Serial.print('/');
-  Serial.print(now.day(), DEC);
-  //Serial.print('/');
-  Serial.println("\n");
-  Serial.print(now.hour(), DEC);
-  Serial.print(':');
-  //if (now.minute() < 10) lcd.print('0'); // Add leading zero
-  //Serial.print(':');
-  Serial.print(now.minute(), DEC);
-  Serial.print(':');
-  //if (now.second() < 10) lcd.print('0'); // Add leading zero
-  //lcd.print(now.second(), DEC);
-  Serial.print(now.second(), DEC);
-  //Serial.print(':');
-  Serial.println("\n");
-
-  delay(1000); // Update every second
+  Temp = rtc.getTemperature();
+   H = now.hour(), DEC;
+   M = now.minute(), DEC;
+   S = now.second(), DEC;
+   if(H>=13) H=H-12;
+   Y = now.year(), DEC;
+   if(Y>2000) Y=Y-2000;
+   Mt = now.month(), DEC;
+   D = now.day(), DEC;
+   //number_to_string(H,Tim);
+  displayclear();
+  displayTime(H,M,S);
+  //Time();
+  delay(1000); /*
+  displayclear();
+  displayTime(Y,Mt,D);
+  delay(1000); */
+  if(alarmTriggered)
+  {
+    alarmTriggered = false;
+    Serial.println("Alarm Triggered!");
+    digitalWrite(AlarmPin, HIGH);
+    digitalWrite(AlarmPin, HIGH);
+    delay(1000);
+    // VERY IMPORTANT Clear alarm flage 
+    rtc.clearAlarm(2);   
+    Serial.println("Alarm Cleard!");
+    //digitalWrite(AlarmPin, LOW);
+  }
+  inputValue = digitalRead(InputPin);
+  if(inputValue==HIGH)
+   digitalWrite(AlarmPin, LOW);
 }
 
