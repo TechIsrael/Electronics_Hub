@@ -1,0 +1,129 @@
+
+#include <LiquidCrystal.h>
+//Arduino Nano
+const int rs = 8, en = 7, d4 = 12, d5 = 11, d6 = 10, d7 = 9;
+LiquidCrystal lcd(rs, en, d4, d5, d6, d7);
+// define connections to 74Ls165
+// pl pin 1 in 74Ls165
+int load = 6;
+// cp pin 2 in the IC
+int clockIn = 5;
+//ce pin 15 in the IC 
+int clockEn =4;
+// Q7 pin 9 in the IC
+int dataIn = 3;
+int inpin = 2;
+int input;
+int num =0;
+int sum =0;
+int value=0;
+int digits[6];
+void clear_data();
+void setup() {
+  //LCD begin
+  lcd.begin(16,2);
+  //set up serial monitor 
+  Serial.begin(9600);
+  //set up for Input IC 74Hc165 
+  pinMode( load, OUTPUT);
+  pinMode( clockEn, OUTPUT);
+  pinMode( dataIn, INPUT);
+  pinMode( clockIn, OUTPUT);
+  pinMode( inpin, INPUT);
+}
+
+void loop() { 
+    if(digitalRead(inpin)==HIGH)
+    { //ShiftIn function executes 
+      delay(150);
+      digitalWrite(load, LOW);
+      delayMicroseconds(5);
+      digitalWrite(load, HIGH);
+      delayMicroseconds(5);
+      digitalWrite(clockIn, HIGH);
+      digitalWrite(clockEn, LOW);
+      input = shiftIn(dataIn, clockIn,MSBFIRST);
+      digitalWrite(clockEn, HIGH);
+      if(input<10)
+      {
+      digits[num]= input;
+      lcd.print(input);
+      delay(300);
+      }
+      num++;
+      if(input==10){
+       for(int j=0; j<=strlen(*digits);j++)
+      {
+       value = value * 10 + digits[j]; 
+      }
+      sum = sum + value;
+      lcd.clear();
+      lcd.print("Sum: ");
+      lcd.print(sum);
+      delay(300); 
+      }
+      if(input==11){
+       for(int j=0; j<=strlen(*digits);j++)
+      {
+       value = value * 10 + digits[j]; 
+      }
+      sum = sum - value;
+      lcd.clear();
+      lcd.setCursor(0,0);
+      lcd.print("Difference: ");
+      lcd.setCursor(0,1);
+      lcd.print(sum);
+      delay(300);
+      }
+      if(input==12){
+       for(int j=0; j<=strlen(*digits);j++)
+      {
+       value = value * 10 + digits[j];
+      }
+      sum = sum * value;
+      lcd.clear();
+      lcd.setCursor(0,0);
+      lcd.print("Product: ");
+      lcd.setCursor(0,1);
+      lcd.print(sum);
+      delay(300);
+      } 
+      if(input==13){
+       for(int j=0; j<=strlen(*digits);j++)
+      {
+       value = value * 10 + digits[j];
+      }
+      sum = sum / value;
+      lcd.clear();
+      lcd.setCursor(0,0);
+      lcd.print("Quotient: ");
+      lcd.setCursor(0,1);
+      lcd.print(sum);
+      delay(300); 
+      }
+     if(input==14)
+     {
+     clear_data();
+     delay(300);
+      }
+     if(input==15)
+     { 
+       clear_data();
+       sum = 0;
+       delay(300);
+     }    
+    }  
+   }
+
+void clear_data(){ 
+      lcd.clear();
+      lcd.print("Enter Nos:");
+      lcd.setCursor(0,1);
+      for(int i=0; i<=5; i++)
+      {
+        digits[i]=" ";
+      }
+      num = 0;
+      value = 0;
+  }
+     
