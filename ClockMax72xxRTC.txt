@@ -1,0 +1,133 @@
+
+#include <Wire.h>
+#include <RTClib.h>// Library for DS3231
+#include <SPI.h>
+//#include <DS3231.h>
+// Initialize the RTC module
+RTC_DS3231 rtc;
+//bool ADy, A12h, Apm;
+unsigned long ti; 
+int brightness;
+int H,M,S,Temp, Humid;
+int D,Mt,Y;
+char buff[10];
+char N1[10];
+char Tim[10];
+// set pin 10 as the slave select for the digital pot:
+ const int SPI_SS = 10;
+ #define DECODE_MODE 9 
+ #define INTENSITY 10 
+ #define SCAN_LIMIT 11 
+ #define SHUTDOWN 12
+ #define DISPLAY_TEST 15
+
+ void sendData(uint8_t address, uint8_t value)
+ {
+    digitalWrite(SPI_SS, LOW);
+    SPI.transfer(address);
+    SPI.transfer(value);
+    digitalWrite(SPI_SS, HIGH);
+ } 
+ void displaySum(int A, int B)
+ {  
+    int Sum = A + B;
+    sprintf(buff,"%d", Sum);
+    int adds = strlen(buff);
+    displayclear();
+  for(int i = 1; i<9;i++) 
+  { 
+   sendData(adds , buff[i-1]);
+   adds--;
+ }
+  delay(100);
+ } 
+
+
+void displayTime(char H, char M,char S)
+{  
+  sprintf(Tim,"%d*%d*%d",H,M,S);
+    int adds2 = strlen(Tim);
+    displayclear() ;
+  for(int i = 1; i<9;i++) 
+  { 
+   sendData(adds2 , Tim[i-1]);
+   adds2--;
+ }
+  //delay(100);
+}
+
+void displayclear()
+{
+ for(int i =1; i<9;i++)
+   {
+      sendData(i,0x0F);
+   }
+}
+
+void displayClear()
+{
+  sendData(9,0x00);
+ for(int i =1; i<9;i++)
+   {
+      sendData(i,0x00);
+   }
+   sendData(9,0x0F);
+}
+
+
+void MAX72xx_begin()
+{
+  SPI.setBitOrder(MSBFIRST);
+  sendData(DISPLAY_TEST, 0x01);
+  delay(1000);
+  sendData(DISPLAY_TEST, 0x00);
+  sendData(DECODE_MODE, 0xFF);
+  sendData(INTENSITY, 0x05);
+  sendData(SCAN_LIMIT, 0x07);
+  sendData(SHUTDOWN, 0x01);
+}
+
+
+void setup() {
+  pinMode(SPI_SS, OUTPUT);
+  Serial.begin(9600);
+  SPI.begin();
+  MAX72xx_begin();
+  Wire.begin();
+
+  if (!rtc.begin()) {
+    Serial.println("Couldn't find RTC");
+    while (1); // Stop the program if RTC is not found
+  }
+
+  // Optional: Set the time to the time the sketch was compiled
+  // Uncomment the line below the very FIRST time you upload the code to set the time, then comment it out and re-upload.
+  //rtc.adjust(DateTime(F(__DATE__), F(__TIME__))); 
+  //rtc.adjust(DateTime(2026 ,1 ,24, 15,28,10));
+}
+
+void loop() {
+  DateTime now = rtc.now(); // Get the current time
+
+  Serial.print(now.year(), DEC);
+  Serial.print('/');
+  Serial.print(now.month(), DEC);
+  Serial.print('/');
+  Serial.print(now.day(), DEC);
+  //Serial.print('/');
+  Serial.println("\n");
+  Serial.print(now.hour(), DEC);
+  Serial.print(':');
+  //if (now.minute() < 10) lcd.print('0'); // Add leading zero
+  //Serial.print(':');
+  Serial.print(now.minute(), DEC);
+  Serial.print(':');
+  //if (now.second() < 10) lcd.print('0'); // Add leading zero
+  //lcd.print(now.second(), DEC);
+  Serial.print(now.second(), DEC);
+  //Serial.print(':');
+  Serial.println("\n");
+
+  delay(1000); // Update every second
+}
+
