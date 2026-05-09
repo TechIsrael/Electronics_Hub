@@ -1,0 +1,95 @@
+
+#include <SD.h>
+#include "DHT.h"
+int CS = 10;
+int Ledpin=13;
+#define DHTPIN 7 
+
+#define DHTTYPE DHT22
+DHT dht(DHTPIN, DHTTYPE);
+File myFile;
+
+  float h = 0;
+  float t = 0;
+  float f = 0;
+  float hif=0;
+  float hic=0;
+  
+void setup() {
+  Serial.begin(9600);
+  pinMode(DHTPIN,INPUT);
+  pinMode(Ledpin, OUTPUT);
+  dht.begin();
+  Serial.println("Initialising the SD card");
+  if(!SD.begin(CS)) 
+  {
+    Serial.println("Initialisation Faled !!!");
+    return; 
+  }
+   Serial.println("Initialisation Completed");
+ }
+
+void loop() {
+  SD_write();
+  DHT22_read();
+  delay(3000);
+}
+
+void SD_write(){
+  myFile = SD.open("SDDATA1.csv", FILE_WRITE);
+  Serial.println("printing DHT22 data");
+  if(myFile)
+  {
+    myFile.println("Humidity");
+    myFile.print("," );
+    myFile.println(h );
+    myFile.print("," );
+    myFile.println("Temperature" );
+    myFile.print("," );
+    myFile.println(t );
+    myFile.print("," );
+    myFile.println(f);
+    myFile.print("," );
+    myFile.println("Heat Index" );
+    myFile.print("," );
+    myFile.println(hif);
+    myFile.print("," );
+    myFile.println(hic);
+    
+    Serial.println("Writing on SD Card Completed");
+    myFile.close();
+  }
+  else
+  { 
+    Serial.println("Error in opening the file"); 
+  }
+} 
+
+void DHT22_read()
+{ 
+   delay(2000);
+   h = dht.readHumidity();
+   t = dht.readTemperature();
+   f = dht.readTemperature(true);
+
+  if (isnan(h) || isnan(t) || isnan(f)) {
+    Serial.println(F("Failed to read from DHT sensor!"));
+    return;
+  }
+  // Compute heat index in Fahrenheit (the default)
+   hif = dht.computeHeatIndex(f, h);
+  // Compute heat index in Celsius (isFahreheit = false)
+   hic = dht.computeHeatIndex(t, h, false);
+
+  Serial.print(F("  Humidity: "));
+  Serial.print(h);
+  Serial.print(F("%  Temperature: "));
+  Serial.print(t);
+  Serial.print(F("°C "));
+  Serial.print(f);
+  Serial.print(F("°F  Heat index: "));
+  Serial.print(hic);
+  Serial.print(F("°C "));
+  Serial.print(hif);
+  Serial.println(F("°F"));
+}
